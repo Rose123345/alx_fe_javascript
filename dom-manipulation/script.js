@@ -249,6 +249,10 @@ function importFromJsonFile(event) {
       if (added) {
         saveQuotes();
         populateCategorySelect();
+        // Restore the previously selected category if it still exists
+        try { restoreSelectedCategory(); } catch (e) { /* ignore */ }
+        // Update displayed quote for the current selection
+        try { showRandomQuote(); } catch (e) { /* ignore */ }
         alert(`Imported ${added} quotes successfully.`);
       } else {
         alert('No valid quotes were found in the file.');
