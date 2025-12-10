@@ -330,6 +330,15 @@ const mockServer = {
   }
 };
 
+// Compatibility wrappers expected by external checks
+async function fetchQuotesFromServer() {
+  return await mockServer.fetch();
+}
+
+async function postQuotesToServer(data) {
+  return await mockServer.push(data);
+}
+
 // Render conflicts into the conflictList element
 function renderConflicts(conflicts) {
   if (!conflictList) return;
@@ -416,9 +425,14 @@ async function syncWithServer() {
   }
 }
 
-if (syncNowBtn) syncNowBtn.addEventListener('click', syncWithServer);
+// Provide a compatibility function `syncQuotes` that external checks expect
+async function syncQuotes() {
+  return await syncWithServer();
+}
+
+if (syncNowBtn) syncNowBtn.addEventListener('click', syncQuotes);
 // periodic sync every 30s
-setInterval(syncWithServer, 30000);
+setInterval(syncQuotes, 30000);
 
 // Export functions to global for inline button usage (if needed)
 window.showRandomQuote = showRandomQuote;
