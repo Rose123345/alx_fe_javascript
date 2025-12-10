@@ -1,6 +1,7 @@
 // Dynamic Quote Generator - advanced DOM manipulation
 const STORAGE_KEY = 'dqg_quotes';
 const SESSION_KEY = 'dqg_lastQuote';
+const CATEGORY_KEY = 'dqg_lastCategory';
 
 const quotes = [
   { text: "The only limit to our realization of tomorrow is our doubts of today.", category: "inspirational" },
@@ -56,6 +57,25 @@ function populateCategorySelect() {
     opt.textContent = cat === 'all' ? 'All' : capitalize(cat);
     categorySelect.appendChild(opt);
   });
+}
+
+function saveSelectedCategory() {
+  try {
+    localStorage.setItem(CATEGORY_KEY, categorySelect.value);
+  } catch (e) {
+    console.error('Failed to save selected category', e);
+  }
+}
+
+function restoreSelectedCategory() {
+  try {
+    const saved = localStorage.getItem(CATEGORY_KEY);
+    if (saved && categorySelect.querySelector(`option[value="${saved}"]`)) {
+      categorySelect.value = saved;
+    }
+  } catch (e) {
+    console.error('Failed to restore selected category', e);
+  }
 }
 
 function capitalize(s){ return String(s).charAt(0).toUpperCase() + String(s).slice(1); }
@@ -167,6 +187,7 @@ function addQuote(text, category) {
 newQuoteBtn.addEventListener('click', showRandomQuote);
 categorySelect.addEventListener('change', () => {
   // When category changes, show a quote from that category (or message)
+  saveSelectedCategory();
   showRandomQuote();
 });
 
@@ -174,6 +195,7 @@ categorySelect.addEventListener('change', () => {
 // Load persisted quotes first
 loadQuotes();
 populateCategorySelect();
+restoreSelectedCategory();
 createAddQuoteForm();
 // Try to restore last quote from session storage
 try {
