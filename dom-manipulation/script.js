@@ -215,7 +215,7 @@ try {
 }
 
 // JSON import/export
-function exportToJson() {
+function exportToJsonFile() {
   try {
     const blob = new Blob([JSON.stringify(quotes, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -269,7 +269,7 @@ function importFromJsonFile(event) {
 // Wire export/import controls
 const exportBtn = document.getElementById('exportJson');
 const importInput = document.getElementById('importFile');
-if (exportBtn) exportBtn.addEventListener('click', exportToJson);
+if (exportBtn) exportBtn.addEventListener('click', exportToJsonFile);
 if (importInput) importInput.addEventListener('change', importFromJsonFile);
 
 // Export functions to global for inline button usage (if needed)

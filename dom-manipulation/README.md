@@ -34,7 +34,7 @@ Example JSON format for import:
 
 Notes
 - The form is created dynamically by `createAddQuoteForm()` in `script.js`.
-- Key functions: `showRandomQuote()`, `createAddQuoteForm()`, `addQuote(text, category)`, `exportToJson()`, `importFromJsonFile()`, `saveQuotes()`, `loadQuotes()`.
+ - Key functions: `showRandomQuote()`, `createAddQuoteForm()`, `addQuote(text, category)`, `exportToJsonFile()`, `importFromJsonFile()`, `saveQuotes()`, `loadQuotes()`.
 
 Try it locally
 - On Windows PowerShell, you can run a simple static server if you have Python installed:
