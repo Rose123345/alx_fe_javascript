@@ -4,10 +4,10 @@ const SESSION_KEY = 'dqg_lastQuote';
 const CATEGORY_KEY = 'dqg_lastCategory';
 
 const quotes = [
-  { text: "The only limit to our realization of tomorrow is our doubts of today.", category: "inspirational" },
-  { text: "I have not failed. I've just found 10,000 ways that won't work.", category: "perseverance" },
-  { text: "Life is what happens when you're busy making other plans.", category: "life" },
-  { text: "Do what you can, with what you have, where you are.", category: "inspirational" }
+  { id: 'q1', text: "The only limit to our realization of tomorrow is our doubts of today.", category: "inspirational" },
+  { id: 'q2', text: "I have not failed. I've just found 10,000 ways that won't work.", category: "perseverance" },
+  { id: 'q3', text: "Life is what happens when you're busy making other plans.", category: "life" },
+  { id: 'q4', text: "Do what you can, with what you have, where you are.", category: "inspirational" }
 ];
 
 // Cache DOM nodes
@@ -40,12 +40,20 @@ function loadQuotes() {
     if (Array.isArray(imported)) {
       quotes.length = 0;
       imported.forEach(q => {
-        if (q && q.text && q.category) quotes.push(q);
+        if (q && q.text && q.category) {
+          // preserve id if present, otherwise generate
+          if (!q.id) q.id = generateId();
+          quotes.push(q);
+        }
       });
     }
   } catch (e) {
     console.error('Failed to load quotes from localStorage', e);
   }
+}
+
+function generateId() {
+  return 'q' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
 }
 
 function populateCategorySelect() {
@@ -187,10 +195,9 @@ function addQuote(text, category) {
   if (!category) category = 'uncategorized';
   const normalizedCategory = category.toLowerCase();
 
-  const newQ = { text, category: normalizedCategory };
+  const newQ = { id: generateId(), text, category: normalizedCategory };
   quotes.push(newQ);
-
-  populateCategorySelect();
+  populateCategories();
   saveQuotes();
   // Select the newly added category so user sees it
   categorySelect.value = normalizedCategory;
@@ -272,7 +279,8 @@ function importFromJsonFile(event) {
       let added = 0;
       imported.forEach(q => {
         if (q && q.text && q.category) {
-          quotes.push({ text: String(q.text), category: String(q.category).toLowerCase() });
+          const id = q.id ? String(q.id) : generateId();
+          quotes.push({ id, text: String(q.text), category: String(q.category).toLowerCase() });
           added++;
         }
       });
@@ -301,6 +309,116 @@ const exportBtn = document.getElementById('exportJson');
 const importInput = document.getElementById('importFile');
 if (exportBtn) exportBtn.addEventListener('click', exportToJsonFile);
 if (importInput) importInput.addEventListener('change', importFromJsonFile);
+
+// Sync UI and mock server setup
+const syncNowBtn = document.getElementById('syncNow');
+const syncStatus = document.getElementById('syncStatus');
+const conflictList = document.getElementById('conflictList');
+
+// Simple in-memory mock server to simulate fetch/post operations.
+const mockServer = {
+  quotes: JSON.parse(JSON.stringify(quotes)),
+  fetch() {
+    // Simulate network delay
+    return new Promise(resolve => setTimeout(() => resolve(JSON.parse(JSON.stringify(this.quotes))), 300));
+  },
+  push(clientQuotes) {
+    return new Promise(resolve => setTimeout(() => {
+      this.quotes = JSON.parse(JSON.stringify(clientQuotes));
+      resolve({ status: 'ok' });
+    }, 300));
+  }
+};
+
+// Render conflicts into the conflictList element
+function renderConflicts(conflicts) {
+  if (!conflictList) return;
+  conflictList.innerHTML = '';
+  if (!conflicts || !conflicts.length) return;
+  const header = document.createElement('div');
+  header.className = 'small';
+  header.textContent = `Conflicts resolved by server: ${conflicts.length}`;
+  conflictList.appendChild(header);
+
+  conflicts.forEach(c => {
+    const row = document.createElement('div');
+    row.style.border = '1px solid #eee';
+    row.style.padding = '8px';
+    row.style.marginTop = '6px';
+    const title = document.createElement('div');
+    title.textContent = `Quote ID: ${c.id}`;
+    const localDiv = document.createElement('div');
+    localDiv.className = 'small';
+    localDiv.textContent = `Local: ${c.local.text} (${c.local.category})`;
+    const serverDiv = document.createElement('div');
+    serverDiv.className = 'small';
+    serverDiv.textContent = `Server: ${c.server.text} (${c.server.category})`;
+    const restoreBtn = document.createElement('button');
+    restoreBtn.textContent = 'Restore Local to Server';
+    restoreBtn.addEventListener('click', async () => {
+      // push local version for this id to server
+      const serverData = await mockServer.fetch();
+      const idx = serverData.findIndex(x => x.id === c.id);
+      if (idx >= 0) serverData[idx] = c.local;
+      else serverData.push(c.local);
+      await mockServer.push(serverData);
+      syncStatus.textContent = 'Local version restored to server for ' + c.id;
+      // re-run sync to reflect new state
+      await syncWithServer();
+    });
+
+    row.appendChild(title);
+    row.appendChild(localDiv);
+    row.appendChild(serverDiv);
+    row.appendChild(restoreBtn);
+    conflictList.appendChild(row);
+  });
+}
+
+// Sync logic: server wins on conflicts
+async function syncWithServer() {
+  if (!mockServer) return;
+  if (syncStatus) syncStatus.textContent = 'Syncing...';
+  try {
+    const serverQuotes = await mockServer.fetch();
+    const localMap = new Map(quotes.map(q => [q.id, q]));
+    const serverMap = new Map(serverQuotes.map(q => [q.id, q]));
+
+    const conflicts = [];
+
+    // Apply server changes and detect conflicts
+    serverQuotes.forEach(sq => {
+      const lq = localMap.get(sq.id);
+      if (lq) {
+        if (JSON.stringify(lq) !== JSON.stringify(sq)) {
+          // conflict - server wins
+          conflicts.push({ id: sq.id, local: lq, server: sq });
+          // replace local with server version
+          const idx = quotes.findIndex(x => x.id === sq.id);
+          if (idx >= 0) quotes[idx] = sq;
+        }
+      } else {
+        // new on server -> add locally
+        quotes.push(sq);
+      }
+    });
+
+    // Local-only entries (not on server) will be pushed to server
+    const merged = JSON.parse(JSON.stringify(quotes));
+    await mockServer.push(merged);
+
+    saveQuotes();
+    populateCategories();
+    renderConflicts(conflicts);
+    if (syncStatus) syncStatus.textContent = 'Last sync: ' + new Date().toLocaleTimeString();
+  } catch (err) {
+    if (syncStatus) syncStatus.textContent = 'Sync failed: ' + err.message;
+  }
+}
+
+if (syncNowBtn) syncNowBtn.addEventListener('click', syncWithServer);
+// periodic sync every 30s
+setInterval(syncWithServer, 30000);
 
 // Export functions to global for inline button usage (if needed)
 window.showRandomQuote = showRandomQuote;

@@ -24,6 +24,12 @@
     <button id="exportJson">Export JSON</button>
     <input type="file" id="importFile" accept=".json" />
   </div>
+  <div class="sync-controls" style="margin-top:12px">
+    <button id="syncNow">Sync Now</button>
+    <span id="syncStatus" class="small" style="margin-left:8px">Not synced yet</span>
+  </div>
+
+  <div id="conflictList" style="margin-top:12px"></div>
 
   <div id="quoteDisplay" class="quote-display" aria-live="polite"></div>
 
