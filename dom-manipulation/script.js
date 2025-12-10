@@ -1,4 +1,6 @@
 // Dynamic Quote Generator - advanced DOM manipulation
+const STORAGE_KEY = 'dqg_quotes';
+const SESSION_KEY = 'dqg_lastQuote';
 
 const quotes = [
   { text: "The only limit to our realization of tomorrow is our doubts of today.", category: "inspirational" },
@@ -17,6 +19,31 @@ const formContainer = document.getElementById('formContainer');
 function getCategories() {
   const set = new Set(quotes.map(q => q.category));
   return ['all', ...Array.from(set)];
+}
+
+// Persistence helpers
+function saveQuotes() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(quotes));
+  } catch (e) {
+    console.error('Failed to save quotes to localStorage', e);
+  }
+}
+
+function loadQuotes() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const imported = JSON.parse(raw);
+    if (Array.isArray(imported)) {
+      quotes.length = 0;
+      imported.forEach(q => {
+        if (q && q.text && q.category) quotes.push(q);
+      });
+    }
+  } catch (e) {
+    console.error('Failed to load quotes from localStorage', e);
+  }
 }
 
 function populateCategorySelect() {
@@ -69,6 +96,12 @@ function renderQuote(q){
 
   quoteDisplay.appendChild(text);
   quoteDisplay.appendChild(meta);
+  // Save last displayed quote to session storage
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(q));
+  } catch (e) {
+    // ignore
+  }
 }
 
 // Create the add-quote form dynamically and attach to DOM
@@ -118,6 +151,7 @@ function addQuote(text, category) {
   quotes.push(newQ);
 
   populateCategorySelect();
+  saveQuotes();
   // Select the newly added category so user sees it
   categorySelect.value = normalizedCategory;
   renderQuote(newQ);
@@ -137,10 +171,80 @@ categorySelect.addEventListener('change', () => {
 });
 
 // Initialize UI
+// Load persisted quotes first
+loadQuotes();
 populateCategorySelect();
 createAddQuoteForm();
-// Show an initial random quote
-showRandomQuote();
+// Try to restore last quote from session storage
+try {
+  const last = sessionStorage.getItem(SESSION_KEY);
+  if (last) {
+    const q = JSON.parse(last);
+    if (q && q.text && q.category) {
+      renderQuote(q);
+    } else {
+      showRandomQuote();
+    }
+  } else {
+    showRandomQuote();
+  }
+} catch (e) {
+  showRandomQuote();
+}
+
+// JSON import/export
+function exportToJson() {
+  try {
+    const blob = new Blob([JSON.stringify(quotes, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'quotes.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Failed to export quotes: ' + e.message);
+  }
+}
+
+function importFromJsonFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!Array.isArray(imported)) throw new Error('JSON must be an array of quotes');
+      let added = 0;
+      imported.forEach(q => {
+        if (q && q.text && q.category) {
+          quotes.push({ text: String(q.text), category: String(q.category).toLowerCase() });
+          added++;
+        }
+      });
+      if (added) {
+        saveQuotes();
+        populateCategorySelect();
+        alert(`Imported ${added} quotes successfully.`);
+      } else {
+        alert('No valid quotes were found in the file.');
+      }
+    } catch (err) {
+      alert('Failed to import quotes: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  // reset the input so the same file can be loaded again if desired
+  event.target.value = '';
+}
+
+// Wire export/import controls
+const exportBtn = document.getElementById('exportJson');
+const importInput = document.getElementById('importFile');
+if (exportBtn) exportBtn.addEventListener('click', exportToJson);
+if (importInput) importInput.addEventListener('change', importFromJsonFile);
 
 // Export functions to global for inline button usage (if needed)
 window.showRandomQuote = showRandomQuote;
