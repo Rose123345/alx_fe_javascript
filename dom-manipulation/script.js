@@ -14,6 +14,7 @@ const quotes = [
 const quoteDisplay = document.getElementById('quoteDisplay');
 const newQuoteBtn = document.getElementById('newQuote');
 const categorySelect = document.getElementById('categorySelect');
+const categoryFilter = document.getElementById('categoryFilter');
 const formContainer = document.getElementById('formContainer');
 
 // Helpers
@@ -57,6 +58,25 @@ function populateCategorySelect() {
     opt.textContent = cat === 'all' ? 'All' : capitalize(cat);
     categorySelect.appendChild(opt);
   });
+}
+
+// New: populateCategories populates both `categorySelect` and the task-required
+// `categoryFilter` dropdown. This keeps both controls in sync.
+function populateCategories() {
+  const categories = getCategories();
+  // Helper to populate a select element
+  function fill(selectEl) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '';
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat === 'all' ? (selectEl.id === 'categoryFilter' ? 'All Categories' : 'All') : capitalize(cat);
+      selectEl.appendChild(opt);
+    });
+  }
+  fill(categorySelect);
+  fill(categoryFilter);
 }
 
 function saveSelectedCategory() {
@@ -190,6 +210,16 @@ categorySelect.addEventListener('change', () => {
   saveSelectedCategory();
   showRandomQuote();
 });
+
+// Task-required function: filterQuotes reads the selection from the `categoryFilter`
+// dropdown, applies it to the main select, saves it, and updates the displayed quote.
+function filterQuotes() {
+  if (!categoryFilter) return;
+  const val = categoryFilter.value;
+  if (categorySelect) categorySelect.value = val;
+  saveSelectedCategory();
+  showRandomQuote();
+}
 
 // Initialize UI
 // Load persisted quotes first

@@ -14,6 +14,11 @@
     <select id="categorySelect">
       <option value="all">All</option>
     </select>
+    <!-- Additional filter select required by Task 2 -->
+    <label for="categoryFilter">Filter:</label>
+    <select id="categoryFilter" onchange="filterQuotes()">
+      <option value="all">All Categories</option>
+    </select>
 
     <button id="newQuote">Show New Quote</button>
     <button id="exportJson">Export JSON</button>
