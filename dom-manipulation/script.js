@@ -341,7 +341,8 @@ const mockServer = {
 };
 
 // Optional remote API simulation using JSONPlaceholder
-const USE_REMOTE_API = true; // toggle this to switch between local mockServer and remote API
+// Use a runtime flag `useRemoteApi` that can be toggled by the UI
+let useRemoteApi = true; // toggle this to switch between local mockServer and remote API
 const REMOTE_API_URL = 'https://jsonplaceholder.typicode.com/posts';
 
 async function fetchRemotePosts() {
@@ -368,7 +369,7 @@ function mapPostsToQuotes(posts) {
 
 // Poll remote API and merge updates into local quotes (server wins on conflict)
 async function pollRemoteUpdates() {
-  if (!USE_REMOTE_API) return;
+  if (!useRemoteApi) return;
   if (syncStatus) syncStatus.textContent = 'Polling remote updates...';
   try {
     const posts = await fetchRemotePosts();
@@ -399,6 +400,9 @@ async function pollRemoteUpdates() {
     saveQuotes();
     populateCategories();
     if (syncStatus) syncStatus.textContent = 'Last remote poll: ' + new Date().toLocaleTimeString();
+    // transient notification for remote updates
+    if (conflicts.length) showToast(`${conflicts.length} conflict(s) resolved from remote`, 'warning');
+    else showToast('Remote updates applied', 'success');
     // Update the displayed quote so any category changes are visible
     try { showRandomQuote(); } catch (e) { /* ignore */ }
   } catch (err) {
@@ -408,7 +412,7 @@ async function pollRemoteUpdates() {
 
 // Push local changes to remote API (simulated; JSONPlaceholder will respond but not persist)
 async function pushLocalToRemote() {
-  if (!USE_REMOTE_API) return;
+  if (!useRemoteApi) return;
   try {
     // Post first 3 quotes to remote as a simulation
     const batch = quotes.slice(0, 3);
