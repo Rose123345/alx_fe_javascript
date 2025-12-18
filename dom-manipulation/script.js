@@ -340,6 +340,94 @@ const mockServer = {
   }
 };
 
+// Optional remote API simulation using JSONPlaceholder
+const USE_REMOTE_API = true; // toggle this to switch between local mockServer and remote API
+const REMOTE_API_URL = 'https://jsonplaceholder.typicode.com/posts';
+
+async function fetchRemotePosts() {
+  if (!USE_REMOTE_API) return [];
+  try {
+    const resp = await fetch(REMOTE_API_URL + '?_limit=10');
+    if (!resp.ok) throw new Error('Network response was not ok');
+    const posts = await resp.json();
+    return posts;
+  } catch (err) {
+    console.warn('Failed to fetch remote posts:', err.message);
+    return [];
+  }
+}
+
+function mapPostsToQuotes(posts) {
+  // Map JSONPlaceholder posts to our quote shape. Use a remote-prefixed id to avoid collisions.
+  return posts.map(p => ({
+    id: 'remote-' + p.id,
+    text: String(p.title).trim() || String(p.body).slice(0, 100),
+    category: 'remote-' + (p.userId || '0')
+  }));
+}
+
+// Poll remote API and merge updates into local quotes (server wins on conflict)
+async function pollRemoteUpdates() {
+  if (!USE_REMOTE_API) return;
+  if (syncStatus) syncStatus.textContent = 'Polling remote updates...';
+  try {
+    const posts = await fetchRemotePosts();
+    if (!posts || !posts.length) {
+      if (syncStatus) syncStatus.textContent = 'No remote updates';
+      return;
+    }
+    const serverQuotes = mapPostsToQuotes(posts);
+
+    const localMap = new Map(quotes.map(q => [q.id, q]));
+    const conflicts = [];
+
+    serverQuotes.forEach(sq => {
+      const lq = localMap.get(sq.id);
+      if (lq) {
+        if (JSON.stringify(lq) !== JSON.stringify(sq)) {
+          conflicts.push({ id: sq.id, local: lq, server: sq });
+          const idx = quotes.findIndex(x => x.id === sq.id);
+          if (idx >= 0) quotes[idx] = sq;
+        }
+      } else {
+        // new remote quote -> add locally
+        quotes.push(sq);
+      }
+    });
+
+    if (conflicts.length) renderConflicts(conflicts);
+    saveQuotes();
+    populateCategories();
+    if (syncStatus) syncStatus.textContent = 'Last remote poll: ' + new Date().toLocaleTimeString();
+    // Update the displayed quote so any category changes are visible
+    try { showRandomQuote(); } catch (e) { /* ignore */ }
+  } catch (err) {
+    if (syncStatus) syncStatus.textContent = 'Remote poll failed: ' + err.message;
+  }
+}
+
+// Push local changes to remote API (simulated; JSONPlaceholder will respond but not persist)
+async function pushLocalToRemote() {
+  if (!USE_REMOTE_API) return;
+  try {
+    // Post first 3 quotes to remote as a simulation
+    const batch = quotes.slice(0, 3);
+    const results = [];
+    for (const q of batch) {
+      const resp = await fetch(REMOTE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: q.text, body: q.text, userId: 1 })
+      });
+      results.push(await resp.json());
+    }
+    return results;
+  } catch (err) {
+    console.warn('Failed to push to remote:', err.message);
+    return null;
+  }
+}
+
 // Compatibility wrappers expected by external checks
 async function fetchQuotesFromServer() {
   return await mockServer.fetch();
@@ -443,6 +531,15 @@ async function syncQuotes() {
 if (syncNowBtn) syncNowBtn.addEventListener('click', syncQuotes);
 // periodic sync every 30s
 setInterval(syncQuotes, 30000);
+// periodic remote polling every 25s (simulates server pushing updates)
+if (USE_REMOTE_API) {
+  // run once immediately to pick up any remote content
+  pollRemoteUpdates();
+  setInterval(pollRemoteUpdates, 25000);
+  // expose for manual testing
+  window.pollRemoteUpdates = pollRemoteUpdates;
+  window.pushLocalToRemote = pushLocalToRemote;
+}
 
 // Export functions to global for inline button usage (if needed)
 window.showRandomQuote = showRandomQuote;
