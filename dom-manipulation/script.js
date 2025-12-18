@@ -24,10 +24,13 @@ function getCategories() {
 }
 
 // Persistence helpers
+// Track the currently selected category (task requested symbol)
+let selectedCategory = 'all';
 function saveQuotes() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(quotes));
-  } catch (e) {
+    // Persist the currently selected category variable
+    localStorage.setItem(CATEGORY_KEY, selectedCategory || categorySelect.value);
     console.error('Failed to save quotes to localStorage', e);
   }
 }
@@ -37,7 +40,8 @@ function loadQuotes() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const imported = JSON.parse(raw);
-    if (Array.isArray(imported)) {
+      selectedCategory = saved;
+      categorySelect.value = saved;
       quotes.length = 0;
       imported.forEach(q => {
         if (q && q.text && q.category) {
@@ -45,21 +49,26 @@ function loadQuotes() {
           if (!q.id) q.id = generateId();
           quotes.push(q);
         }
-      });
-    }
+  // Use the tracked selectedCategory variable (falls back to DOM value)
+  const sel = (selectedCategory && selectedCategory !== 'all') ? selectedCategory : (categorySelect ? categorySelect.value : 'all');
+  const pool = (sel && sel !== 'all') ? quotes.filter(q => q.category === sel) : quotes;
   } catch (e) {
     console.error('Failed to load quotes from localStorage', e);
   }
-}
-
+  // Update tracked variable, persist, and refresh
+  selectedCategory = categorySelect.value;
+  saveSelectedCategory();
+  showRandomQuote();
 function generateId() {
   return 'q' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
 }
 
 function populateCategorySelect() {
-  const categories = getCategories();
-  // Clear existing options
-  categorySelect.innerHTML = '';
+  // Synchronize both the DOM select and the tracked variable
+  if (categorySelect) categorySelect.value = val;
+  selectedCategory = val;
+  saveSelectedCategory();
+  showRandomQuote();
   categories.forEach(cat => {
     const opt = document.createElement('option');
     opt.value = cat;
@@ -75,7 +84,8 @@ function populateCategories() {
   // Helper to populate a select element
   function fill(selectEl) {
     if (!selectEl) return;
-    selectEl.innerHTML = '';
+  if (categorySelect) categorySelect.value = normalizedCategory;
+  selectedCategory = normalizedCategory;
     categories.forEach(cat => {
       const opt = document.createElement('option');
       opt.value = cat;
