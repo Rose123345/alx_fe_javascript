@@ -346,7 +346,7 @@ let useRemoteApi = true; // toggle this to switch between local mockServer and r
 const REMOTE_API_URL = 'https://jsonplaceholder.typicode.com/posts';
 
 async function fetchRemotePosts() {
-  if (!USE_REMOTE_API) return [];
+  if (!useRemoteApi) return [];
   try {
     const resp = await fetch(REMOTE_API_URL + '?_limit=10');
     if (!resp.ok) throw new Error('Network response was not ok');
@@ -486,6 +486,35 @@ function renderConflicts(conflicts) {
   });
 }
 
+// Toast helper
+const toastContainer = document.getElementById('toast');
+function showToast(message, type = 'info', ttl = 4000) {
+  if (!toastContainer) return;
+  const item = document.createElement('div');
+  item.className = 'toast-item ' + (type || '');
+  item.setAttribute('role', 'status');
+  item.textContent = message;
+  toastContainer.appendChild(item);
+  // Auto-remove
+  setTimeout(() => {
+    item.classList.add('fadeout');
+    setTimeout(() => item.remove(), 350);
+  }, ttl);
+}
+
+// Remote toggle wiring
+const remoteToggle = document.getElementById('remoteToggle');
+const remoteStatus = document.getElementById('remoteStatus');
+if (remoteToggle) {
+  useRemoteApi = !!remoteToggle.checked;
+  if (remoteStatus) remoteStatus.textContent = useRemoteApi ? 'Remote: on' : 'Remote: off';
+  remoteToggle.addEventListener('change', () => {
+    useRemoteApi = !!remoteToggle.checked;
+    if (remoteStatus) remoteStatus.textContent = useRemoteApi ? 'Remote: on' : 'Remote: off';
+    showToast('Remote polling ' + (useRemoteApi ? 'enabled' : 'disabled'), 'info');
+  });
+}
+
 // Sync logic: server wins on conflicts
 async function syncWithServer() {
   if (!mockServer) return;
@@ -522,6 +551,8 @@ async function syncWithServer() {
     populateCategories();
     renderConflicts(conflicts);
     if (syncStatus) syncStatus.textContent = 'Last sync: ' + new Date().toLocaleTimeString();
+    // notify success
+    showToast('Quotes synced with server!', 'success');
   } catch (err) {
     if (syncStatus) syncStatus.textContent = 'Sync failed: ' + err.message;
   }
@@ -536,14 +567,13 @@ if (syncNowBtn) syncNowBtn.addEventListener('click', syncQuotes);
 // periodic sync every 30s
 setInterval(syncQuotes, 30000);
 // periodic remote polling every 25s (simulates server pushing updates)
-if (USE_REMOTE_API) {
-  // run once immediately to pick up any remote content
-  pollRemoteUpdates();
-  setInterval(pollRemoteUpdates, 25000);
-  // expose for manual testing
-  window.pollRemoteUpdates = pollRemoteUpdates;
-  window.pushLocalToRemote = pushLocalToRemote;
-}
+// run once immediately if enabled
+if (useRemoteApi) pollRemoteUpdates();
+// always schedule the poller (it will noop if disabled)
+setInterval(pollRemoteUpdates, 25000);
+// expose for manual testing
+window.pollRemoteUpdates = pollRemoteUpdates;
+window.pushLocalToRemote = pushLocalToRemote;
 
 // Export functions to global for inline button usage (if needed)
 window.showRandomQuote = showRandomQuote;

@@ -15,4 +15,7 @@ h1{margin:0 0 12px}
 #toast{position:fixed;right:16px;bottom:16px;z-index:1000;display:flex;flex-direction:column;gap:8px}
 .toast-item{background:rgba(0,0,0,0.85);color:#fff;padding:10px 14px;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);min-width:160px}
 .toast-item.success{background:linear-gradient(90deg,#2b8dd6,#2bd6a6)}
+.toast-item.info{background:linear-gradient(90deg,#6c7ae0,#4cc0ff)}
+.toast-item.warning{background:linear-gradient(90deg,#ffb347,#ff6b6b)}
+.toast-item.fadeout{opacity:0;transform:translateY(6px);transition:opacity .3s,transform .3s}
 .toggle{display:inline-flex;align-items:center;gap:6px}
